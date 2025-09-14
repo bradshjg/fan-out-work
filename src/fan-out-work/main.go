@@ -3,6 +3,9 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -23,10 +26,11 @@ type OutputChannel struct {
 
 var (
 	// key must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256)
-	key           = []byte(os.Getenv("SESSION_SIGNING_KEY"))
-	store         = sessions.NewCookieStore(key)
-	verifier      = oauth2.GenerateVerifier()
-	outputChannel = &OutputChannel{}
+	key               = []byte(os.Getenv("SESSION_SIGNING_KEY"))
+	store             = sessions.NewCookieStore(key)
+	verifier          = oauth2.GenerateVerifier()
+	outputChannel     = &OutputChannel{}
+	sessionCookieName = "fanout-out-work-session"
 )
 
 var githubOauthConfig = &oauth2.Config{
@@ -35,6 +39,16 @@ var githubOauthConfig = &oauth2.Config{
 	RedirectURL:  "http://localhost:8080/github/callback",
 	Scopes:       []string{"user:email", "read:user"},
 	Endpoint:     github.Endpoint,
+}
+
+// generateRandomState generates a cryptographically secure random string for OAuth state.
+func generateRandomState() (string, error) {
+	b := make([]byte, 32) // Generate a 32-byte random string
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", fmt.Errorf("failed to read random bytes: %w", err)
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
 }
 
 func (output *OutputChannel) create(name string) chan string {
@@ -59,38 +73,6 @@ func (output *OutputChannel) close(name string) error {
 	close(ch)
 	output.Delete(name)
 	return nil
-}
-
-func secret(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "cookie-name")
-
-	// Check if user is authenticated
-	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	// Print secret message
-	fmt.Fprintln(w, "The cake is a lie!")
-}
-
-func login(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "cookie-name")
-
-	// Authentication goes here
-	// ...
-
-	// Set user as authenticated
-	session.Values["authenticated"] = true
-	session.Save(r, w)
-}
-
-func logout(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "cookie-name")
-
-	// Revoke users authentication
-	session.Values["authenticated"] = false
-	session.Save(r, w)
 }
 
 func run(w http.ResponseWriter, r *http.Request) {
@@ -148,22 +130,56 @@ func output(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func githubLoginHandler(w http.ResponseWriter, r *http.Request) {
+func githubLogin(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, sessionCookieName)
+	state, err := generateRandomState()
+	if err != nil {
+		fmt.Fprintf(w, "Error generating state: %v", err)
+		return
+	}
+	session.Values["state"] = state
+	session.Save(r, w)
+
 	http.Redirect(w, r,
-		githubOauthConfig.AuthCodeURL("state", oauth2.S256ChallengeOption(verifier)),
+		githubOauthConfig.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier)),
 		http.StatusTemporaryRedirect,
 	)
 }
 
 func githubCallback(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, sessionCookieName)
 	ctx := context.Background()
+	state := r.FormValue("state")
 	code := r.FormValue("code")
-	tok, err := githubOauthConfig.Exchange(ctx, code, oauth2.VerifierOption(verifier))
+	session_state := session.Values["state"]
+	if session_state != state {
+		fmt.Fprintf(w, "State values %v and %v didn't match!", session_state, state)
+		return
+	}
+	token, err := githubOauthConfig.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		log.Fatal(err)
 	}
+	tokenJson, err := json.Marshal(token)
+	if err != nil {
+		log.Fatal(err)
+	}
+	session.Values["token"] = string(tokenJson)
+	session.Save(r, w)
+	http.Redirect(w, r,
+		"/me",
+		http.StatusTemporaryRedirect,
+	)
+}
 
-	client := githubOauthConfig.Client(ctx, tok)
+func me(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, sessionCookieName)
+	ctx := context.Background()
+	tokenJSON := session.Values["token"].(string)
+	var token oauth2.Token
+	json.Unmarshal([]byte(tokenJSON), &token)
+
+	client := githubOauthConfig.Client(ctx, &token)
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
 		log.Fatal(err)
@@ -175,16 +191,15 @@ func githubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	bodyString := string(bodyBytes)
 	fmt.Fprintln(w, bodyString)
+
 }
 
 func main() {
-	http.HandleFunc("/secret", secret)
-	http.HandleFunc("/login", login)
-	http.HandleFunc("/logout", logout)
 	http.HandleFunc("/run", run)
 	http.HandleFunc("/output", output)
-	http.HandleFunc("/github/login", githubLoginHandler)
+	http.HandleFunc("/github/login", githubLogin)
 	http.HandleFunc("/github/callback", githubCallback)
+	http.HandleFunc("/me", me)
 
 	fmt.Println("Server starting on port 8080...")
 	http.ListenAndServe(":8080", nil)
