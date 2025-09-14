@@ -2,50 +2,62 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"sync"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 
 	"github.com/gorilla/sessions"
 )
 
+type OutputChannel struct {
+	sync.Map
+}
+
 var (
 	// key must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256)
-	key            = []byte("super-secret-key")
-	store          = sessions.NewCookieStore(key)
-	outputMap      = make(map[string]chan string)
-	outputMapMutex sync.Mutex
+	key           = []byte(os.Getenv("SESSION_SIGNING_KEY"))
+	store         = sessions.NewCookieStore(key)
+	verifier      = oauth2.GenerateVerifier()
+	outputChannel = &OutputChannel{}
 )
 
-func createOutputChannel(name string) chan string {
+var githubOauthConfig = &oauth2.Config{
+	ClientID:     os.Getenv("GITHUB_OAUTH_CLIENT_ID"),
+	ClientSecret: os.Getenv("GITHUB_OAUTH_CLIENT_SECRET"),
+	RedirectURL:  "http://localhost:8080/github/callback",
+	Scopes:       []string{"user:email", "read:user"},
+	Endpoint:     github.Endpoint,
+}
+
+func (output *OutputChannel) create(name string) chan string {
 	ch := make(chan string, 5)
-	outputMapMutex.Lock()
-	defer outputMapMutex.Unlock()
-	outputMap[name] = ch
+	output.Store(name, ch)
 	return ch
 }
 
-func getOutputChannel(name string) (chan string, error) {
-	outputMapMutex.Lock()
-	defer outputMapMutex.Unlock()
-	ch, ok := outputMap[name]
+func (output *OutputChannel) get(name string) (chan string, error) {
+	ch, ok := output.Load(name)
 	if !ok {
 		return nil, fmt.Errorf("no output exists for key '%s'", name)
 	}
-	return ch, nil
+	return ch.(chan string), nil
 }
 
-func closeOutputChannel(name string) error {
-	outputMapMutex.Lock()
-	defer outputMapMutex.Unlock()
-	ch, ok := outputMap[name]
-	if !ok {
+func (output *OutputChannel) close(name string) error {
+	ch, err := output.get(name)
+	if err != nil {
 		return nil
 	}
 	close(ch)
-	delete(outputMap, name)
+	output.Delete(name)
 	return nil
 }
 
@@ -94,10 +106,10 @@ func run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outputChannelName := r.URL.Query().Get("name")
-	ch := createOutputChannel(outputChannelName)
+	ch := outputChannel.create(outputChannelName)
 
 	go func() {
-		defer closeOutputChannel(outputChannelName)
+		defer outputChannel.close(outputChannelName)
 		scanner := bufio.NewScanner(stdoutPipe)
 
 		for scanner.Scan() {
@@ -119,7 +131,7 @@ func run(w http.ResponseWriter, r *http.Request) {
 
 func output(w http.ResponseWriter, r *http.Request) {
 	outputChannelName := r.URL.Query().Get("name")
-	ch, err := getOutputChannel(outputChannelName)
+	ch, err := outputChannel.get(outputChannelName)
 	if err != nil {
 		fmt.Fprintf(w, "Error getting outout: %v", err)
 		return
@@ -136,12 +148,43 @@ func output(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func githubLoginHandler(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r,
+		githubOauthConfig.AuthCodeURL("state", oauth2.S256ChallengeOption(verifier)),
+		http.StatusTemporaryRedirect,
+	)
+}
+
+func githubCallback(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	code := r.FormValue("code")
+	tok, err := githubOauthConfig.Exchange(ctx, code, oauth2.VerifierOption(verifier))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client := githubOauthConfig.Client(ctx, tok)
+	resp, err := client.Get("https://api.github.com/user")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	bodyString := string(bodyBytes)
+	fmt.Fprintln(w, bodyString)
+}
+
 func main() {
 	http.HandleFunc("/secret", secret)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/logout", logout)
 	http.HandleFunc("/run", run)
 	http.HandleFunc("/output", output)
+	http.HandleFunc("/github/login", githubLoginHandler)
+	http.HandleFunc("/github/callback", githubCallback)
 
 	fmt.Println("Server starting on port 8080...")
 	http.ListenAndServe(":8080", nil)

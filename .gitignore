@@ -1,2 +1,5 @@
+# ignore .env secrets
+.env
+
 # ignore build artifact
 src/fan-out-work/fan-out-work
