@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -45,40 +44,38 @@ type OAuthCallbackParams struct {
 	Code  string `query:"code"`
 }
 
-func (os *OAuthService) RedirectURL(c echo.Context) string {
+func (os *OAuthService) RedirectURL(c echo.Context) (string, error) {
 	state, err := generateRandomState()
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	os.storeState(c, state)
 
-	return os.oauthConfig.AuthCodeURL(state, oauth2.S256ChallengeOption(os.verifier))
+	return os.oauthConfig.AuthCodeURL(state, oauth2.S256ChallengeOption(os.verifier)), nil
 }
 
 func (os *OAuthService) StoreToken(c echo.Context) error {
 	ctx := context.Background()
-	fmt.Printf("Query params: %v", c.Request().URL.Query())
 	var oauthCallbackParams OAuthCallbackParams
 	err := c.Bind(&oauthCallbackParams)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	fmt.Printf("Bound query params: %v", oauthCallbackParams)
 	state, err := os.getState(c)
 	if err != nil {
 		return err
 	}
 	if state != oauthCallbackParams.State {
-		log.Fatalf("state values doen't match: %v, %v", state, oauthCallbackParams.State)
+		return fmt.Errorf("state values doen't match: %v, %v", state, oauthCallbackParams.State)
 	}
 	token, err := os.oauthConfig.Exchange(ctx, oauthCallbackParams.Code, oauth2.VerifierOption(os.verifier))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	tokenJson, err := json.Marshal(token)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	os.storeToken(c, string(tokenJson))
 	return nil
@@ -122,13 +119,19 @@ func (os *OAuthService) storeToken(c echo.Context, value string) {
 }
 
 func (os *OAuthService) store(c echo.Context, key string, value string) error {
-	session, _ := os.sessionStore.Get(c.Request(), os.sessionName)
+	session, err := os.sessionStore.Get(c.Request(), os.sessionName)
+	if err != nil {
+		return err
+	}
 	session.Values[key] = value
 	return session.Save(c.Request(), c.Response())
 }
 
 func (os *OAuthService) get(c echo.Context, key string) (string, error) {
-	session, _ := os.sessionStore.Get(c.Request(), os.sessionName)
+	session, err := os.sessionStore.Get(c.Request(), os.sessionName)
+	if err != nil {
+		return "", err
+	}
 	if v, ok := session.Values[key].(string); ok {
 		return v, nil
 	}

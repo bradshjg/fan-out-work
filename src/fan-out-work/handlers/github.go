@@ -18,7 +18,11 @@ type GitHubHandler struct {
 }
 
 func (gh *GitHubHandler) OAuthHandler(c echo.Context) error {
-	return c.Redirect(http.StatusFound, gh.oauthService.RedirectURL(c))
+	redirectURL, err := gh.oauthService.RedirectURL(c)
+	if err != nil {
+		return err
+	}
+	return c.Redirect(http.StatusFound, redirectURL)
 }
 
 func (gh *GitHubHandler) OAuthCallbackHandler(c echo.Context) error {

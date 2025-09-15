@@ -1,11 +1,19 @@
 package views
 
-templ HomeContent(name string) {
-	<div>Howdy, { name }!</div>
+import (
+    "strings"
+)
+
+func StringifyOrgs(orgs []string) string {
+    return strings.Join(orgs, ", ")
 }
 
-templ Home(name string) {
+templ HomeContent(orgs []string) {
+	<div>Here are your orgs: { StringifyOrgs(orgs) }!</div>
+}
+
+templ Home(orgs []string) {
 	@Base() {
-		@HomeContent(name)
+		@HomeContent(orgs)
 	}
 }

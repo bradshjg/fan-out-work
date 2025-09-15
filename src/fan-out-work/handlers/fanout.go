@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -12,25 +11,19 @@ import (
 
 func NewFanoutHandler(oauthService services.OAuthService) *FanoutHandler {
 	return &FanoutHandler{
-		oauthService: &oauthService,
+		githubService: services.NewGitHubService(&oauthService),
 	}
 }
 
 type FanoutHandler struct {
-	oauthService *services.OAuthService
+	githubService *services.GitHubService
 }
 
 func (fh *FanoutHandler) HomeHandler(c echo.Context) error {
-	ctx := context.Background()
-	client, err := fh.oauthService.GetClient(c)
+	orgs, err := fh.githubService.GetOrgs(c)
 	if err != nil {
+		fmt.Printf("Error getting orgs: %v", err)
 		return c.Redirect(http.StatusFound, "/foo")
 	}
-	user, resp, err := client.Users.Get(ctx, "")
-	fmt.Printf("%v", resp.StatusCode)
-	if err != nil {
-		return c.Redirect(http.StatusFound, "/foo")
-	}
-	name := user.GetName()
-	return renderView(c, views.Home(name))
+	return renderView(c, views.Home(orgs))
 }
