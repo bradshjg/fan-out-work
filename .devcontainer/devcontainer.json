@@ -1,9 +1,13 @@
 {
-  "image": "mcr.microsoft.com/devcontainers/go",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "target": "dev"
+  },
   "customizations": {
     "vscode": {
         "extensions": [
-            "golang.Go"
+            "golang.Go",
+            "a-h.templ"
         ]
     }
   }

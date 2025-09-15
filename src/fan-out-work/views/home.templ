@@ -1,0 +1,11 @@
+package views
+
+templ HomeContent(name string) {
+	<div>Howdy, { name }!</div>
+}
+
+templ Home(name string) {
+	@Base() {
+		@HomeContent(name)
+	}
+}
