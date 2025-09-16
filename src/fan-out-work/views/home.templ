@@ -9,7 +9,7 @@ func StringifyOrgs(orgs []string) string {
 }
 
 templ HomeContent(orgs []string) {
-	<div>Here are your orgs: { StringifyOrgs(orgs) }!</div>
+	<div data-testid="orgs">Here are your orgs: { StringifyOrgs(orgs) }!</div>
 }
 
 templ Home(orgs []string) {

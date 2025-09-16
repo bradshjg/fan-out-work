@@ -7,17 +7,21 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func NewGitHubService(oauthService *OAuthService) *GitHubService {
-	return &GitHubService{
+type GitHubService interface {
+	GetOrgs(c echo.Context) ([]string, error)
+}
+
+func NewGitHubService(oauthService *OAuthService) *GitHubAPIService {
+	return &GitHubAPIService{
 		oauthService: oauthService,
 	}
 }
 
-type GitHubService struct {
+type GitHubAPIService struct {
 	oauthService *OAuthService
 }
 
-func (gs *GitHubService) GetOrgs(c echo.Context) ([]string, error) {
+func (gs *GitHubAPIService) GetOrgs(c echo.Context) ([]string, error) {
 	ctx := context.Background()
 	client, err := gs.oauthService.GetClient(c)
 	if err != nil {

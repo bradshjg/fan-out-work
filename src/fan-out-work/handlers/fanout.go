@@ -9,14 +9,14 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func NewFanoutHandler(oauthService services.OAuthService) *FanoutHandler {
+func NewFanoutHandler(githubService services.GitHubService) *FanoutHandler {
 	return &FanoutHandler{
-		githubService: services.NewGitHubService(&oauthService),
+		githubService: githubService,
 	}
 }
 
 type FanoutHandler struct {
-	githubService *services.GitHubService
+	githubService services.GitHubService
 }
 
 func (fh *FanoutHandler) HomeHandler(c echo.Context) error {
