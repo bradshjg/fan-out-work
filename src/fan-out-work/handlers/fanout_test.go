@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/bradshjg/fan-out-work/services"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
@@ -23,7 +24,7 @@ func TestHomeHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	h := NewFanoutHandler(&mockGitHubService{})
+	h := NewFanoutHandler(&mockGitHubService{}, &services.FanoutServiceImpl{})
 	if assert.NoError(t, h.HomeHandler(c)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(rec.Body.String()))

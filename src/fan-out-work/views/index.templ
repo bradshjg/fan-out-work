@@ -1,0 +1,47 @@
+package views
+
+import (
+    "strings"
+)
+
+func StringifyOrgs(orgs []string) string {
+    return strings.Join(orgs, ", ")
+}
+
+templ IndexForm(orgs []string)  {
+
+}
+
+templ IndexContent(authenticated bool, orgs []string, patches []string) {
+	<div style="display: flex; align-items: center; justify-content: center; margin-top: 10em;">
+	if !authenticated {
+		<a data-testid="auth" href="/github/login">Authorize for your orgs!</a>
+	} else {
+		<form style="display: flex; flex-direction: column">
+			<label data-testid="orgs">Select an org:
+				<select>
+					<option></option>
+				for _, org := range orgs {
+					<option value="{ org }">{ org }</option>
+				}
+				</select>
+			</label>
+			<label data-testid="patches" style="margin-top: 1em;">Select a patch:
+				<select>
+					<option></option>
+				for _, patch := range patches {
+					<option value="{ patch }">{ patch }</option>
+				}
+				</select>
+			</label>
+			<input type="submit" value="Dry run" style="margin-top: 1em;"/>
+		</form>
+	}
+	</div>
+}
+
+templ Index(authenticated bool, orgs []string, patches []string) {
+	@Base() {
+		@IndexContent(authenticated, orgs, patches)
+	}
+}

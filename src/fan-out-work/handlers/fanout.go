@@ -1,29 +1,29 @@
 package handlers
 
 import (
-	"fmt"
-	"net/http"
-
 	"github.com/bradshjg/fan-out-work/services"
 	"github.com/bradshjg/fan-out-work/views"
 	"github.com/labstack/echo/v4"
 )
 
-func NewFanoutHandler(githubService services.GitHubService) *FanoutHandler {
+func NewFanoutHandler(githubService services.GitHubService, fanoutService services.FanoutService) *FanoutHandler {
 	return &FanoutHandler{
 		githubService: githubService,
+		fanoutService: fanoutService,
 	}
 }
 
 type FanoutHandler struct {
 	githubService services.GitHubService
+	fanoutService services.FanoutService
 }
 
 func (fh *FanoutHandler) HomeHandler(c echo.Context) error {
 	orgs, err := fh.githubService.GetOrgs(c)
+	authenticated := err == nil
+	patches, err := fh.fanoutService.GetPatches()
 	if err != nil {
-		fmt.Printf("Error getting orgs: %v", err)
-		return c.Redirect(http.StatusFound, "/foo")
+		c.Logger().Error(err)
 	}
-	return renderView(c, views.Home(orgs))
+	return renderView(c, views.Index(authenticated, orgs, patches))
 }

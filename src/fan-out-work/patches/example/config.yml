@@ -1,0 +1,23 @@
+# see https://github.com/lindell/multi-gitter?tab=readme-ov-file#config-file for description of options
+#
+# only a subset are supported:
+#
+# PR Creation
+#
+# branch
+# pr-title
+# pr-body
+#
+# Repo Search (will fall back to selected org)
+#
+# code-search (will have selected org injected)
+# repo-search (will have selected org injected)
+#
+# Repo filtering
+#
+# topic
+---
+branch: "example-patch-pr-branch"
+pr-title: "PR title"
+body: "PR body"
+code-search: "filename:"

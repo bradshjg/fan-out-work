@@ -22,7 +22,7 @@ func main() {
 	e.Use(session.Middleware(sessionStore))
 	os := services.NewOauthService(sessionStore)
 
-	fh := handlers.NewFanoutHandler(services.NewGitHubService(os))
+	fh := handlers.NewFanoutHandler(services.NewGitHubService(os), services.NewFanoutService())
 	gh := handlers.NewGitHubHandler(*os)
 
 	e.GET("/", fh.HomeHandler)
