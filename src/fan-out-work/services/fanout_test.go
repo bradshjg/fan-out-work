@@ -82,3 +82,20 @@ func TestDryRun(t *testing.T) {
 	assert.Nil(t, err, "Expected nil error, got %v", err)
 	assert.Equal(t, expectedArgs, capturedArgs, "Expected %v to be %v", capturedArgs, expectedArgs)
 }
+
+func TestInvalidPatchName(t *testing.T) {
+	defer chdir(t, "..")()
+	capturedArgs = []string{} // reset arg capture
+	fs := NewFanoutService()
+	pr := PatchRun{
+		accessToken: "gh-api-token",
+		org:         "gh-org",
+		patchName:   "../../invalid-patch",
+		dryRun:      true,
+		executor:    &mockExecutor{},
+	}
+	_, err := fs.Run(pr)
+	assert.NotNil(t, err, "Expected error got nil")
+	expectedError := "invalid patch name: ../../invalid-patch"
+	assert.Equal(t, expectedError, err.Error())
+}
