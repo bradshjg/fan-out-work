@@ -1,0 +1,16 @@
+# see https://github.com/lindell/multi-gitter?tab=readme-ov-file#config-file for description of options
+#
+# only a subset are supported:
+#
+# PR Creation
+#
+# branch
+# pr-title
+# pr-body
+---
+branch: "example-patch-pr-branch"
+pr-title: "Example PR Title"
+pr-body: |
+  This is an example PR body.
+
+  It might contain multiple lines.

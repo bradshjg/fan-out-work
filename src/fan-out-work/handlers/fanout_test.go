@@ -19,12 +19,26 @@ func (*mockGitHubService) GetOrgs(c echo.Context) ([]string, error) {
 	return orgs, nil
 }
 
+type mockFanoutService struct{}
+
+func (*mockFanoutService) Patches() ([]string, error) {
+	return []string{"foo", "bar"}, nil
+}
+
+func (*mockFanoutService) Run(pr services.PatchRun) (string, error) {
+	return "token", nil
+}
+
+func (*mockFanoutService) Output(token string) (chan string, error) {
+	return make(chan string), nil
+}
+
 func TestHomeHandler(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	h := NewFanoutHandler(&mockGitHubService{}, &services.FanoutServiceImpl{})
+	h := NewFanoutHandler(&mockGitHubService{}, &mockFanoutService{})
 	if assert.NoError(t, h.HomeHandler(c)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(rec.Body.String()))
@@ -37,7 +51,7 @@ func TestHomeHandler(t *testing.T) {
 		}
 
 		// Assert on the text content
-		expectedText := "Here are your orgs: howdy, there!"
+		expectedText := "Select an org:  howdythere"
 		if text := selection.Text(); text != expectedText {
 			t.Errorf("Expected text '%s', got '%s'", expectedText, text)
 		}

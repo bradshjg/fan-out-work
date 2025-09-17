@@ -21,7 +21,7 @@ type FanoutHandler struct {
 func (fh *FanoutHandler) HomeHandler(c echo.Context) error {
 	orgs, err := fh.githubService.GetOrgs(c)
 	authenticated := err == nil
-	patches, err := fh.fanoutService.GetPatches()
+	patches, err := fh.fanoutService.Patches()
 	if err != nil {
 		c.Logger().Error(err)
 	}

@@ -6,6 +6,8 @@ USER vscode
 
 RUN go install github.com/a-h/templ/cmd/templ@v0.3.943
 
+RUN curl -s https://raw.githubusercontent.com/lindell/multi-gitter/master/install.sh | sh
+
 FROM golang:latest AS build
 
 WORKDIR /src

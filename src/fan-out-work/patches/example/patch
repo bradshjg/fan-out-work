@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-find . -type f -name "*.txt" -exec sed -i 's/foo/bar/g' {} \;
