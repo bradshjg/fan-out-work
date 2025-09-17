@@ -16,7 +16,7 @@ import (
 
 var (
 	outputMap = sync.Map{}
-	patchDir  = "./services/patches"
+	patchDir  = "./patches"
 )
 
 type config struct {
