@@ -38,7 +38,7 @@ func TestRun(t *testing.T) {
 	pr := PatchRun{
 		AccessToken: "gh-api-token",
 		Org:         "gh-org",
-		PatchName:   "example",
+		Patch:       "example",
 		DryRun:      false,
 		Executor:    &mockExecutor{},
 	}
@@ -64,7 +64,7 @@ func TestDryRun(t *testing.T) {
 	pr := PatchRun{
 		AccessToken: "gh-api-token",
 		Org:         "gh-org",
-		PatchName:   "example",
+		Patch:       "example",
 		DryRun:      true,
 		Executor:    &mockExecutor{},
 	}
@@ -92,7 +92,7 @@ func TestInvalidPatchName(t *testing.T) {
 	pr := PatchRun{
 		AccessToken: "gh-api-token",
 		Org:         "gh-org",
-		PatchName:   "../../invalid-patch",
+		Patch:       "../../invalid-patch",
 		DryRun:      true,
 		Executor:    &mockExecutor{},
 	}

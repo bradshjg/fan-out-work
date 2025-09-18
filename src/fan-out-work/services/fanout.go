@@ -29,7 +29,7 @@ type config struct {
 type PatchRun struct {
 	AccessToken string
 	Org         string
-	PatchName   string
+	Patch       string
 	DryRun      bool
 	Executor    executor
 }
@@ -138,8 +138,8 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !slices.Contains(possiblePatches, pr.PatchName) {
-		return "", fmt.Errorf("invalid patch name: %s", pr.PatchName)
+	if !slices.Contains(possiblePatches, pr.Patch) {
+		return "", fmt.Errorf("invalid patch name: %s", pr.Patch)
 	}
 	args, err := fs.execArgs(pr)
 	if err != nil {
@@ -191,7 +191,7 @@ func (fs *FanoutServiceImpl) execArgs(pr PatchRun) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	patch := fmt.Sprintf("patches/%s/patch", pr.PatchName)
+	patch := fmt.Sprintf("patches/%s/patch", pr.Patch)
 	args := []string{
 		"run",
 		patch,
@@ -214,7 +214,7 @@ func (fs *FanoutServiceImpl) patchConfig(pr PatchRun) (config, error) {
 	if err != nil {
 		return config{}, err
 	}
-	patchRoot, err := patchesRoot.OpenRoot(pr.PatchName)
+	patchRoot, err := patchesRoot.OpenRoot(pr.Patch)
 	if err != nil {
 		return config{}, err
 	}

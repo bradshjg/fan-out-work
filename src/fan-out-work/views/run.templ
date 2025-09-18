@@ -1,8 +1,11 @@
 package views
 
-templ Run(outputToken string) {
-    <div hx-get="/output" hx-include="find [name='token']" hx-target="#output-container" hx-swap="beforeend" hx-trigger="every 1s">
+templ Run(outputToken string, org string, patch string, dryRun bool) {
+    <form hx-get="/output" hx-target="#output-container" hx-swap="beforeend" hx-trigger="every 1s">
         <input type="hidden" name="token" value={ outputToken }>
+        <input type="hidden" name="org" value={ org }>
+        <input type="hidden" name="patch" value={ patch }>
+        <input type="hidden" name="dry-run" value={ dryRun }>
         <p id="output-container"></p>
-    </div>
+    </form>
 }

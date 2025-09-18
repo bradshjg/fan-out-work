@@ -52,18 +52,21 @@ func (fh *FanoutHandler) RunHandler(c echo.Context) error {
 	pr := services.PatchRun{
 		AccessToken: token,
 		Org:         patch.Org,
-		PatchName:   patch.Name,
+		Patch:       patch.Name,
 		DryRun:      patch.DryRun,
 	}
 	outputToken, err := fh.fanoutService.Run(pr)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("error getting output token: %v", err))
 	}
-	return renderView(c, views.Run(outputToken))
+	return renderView(c, views.Run(outputToken, patch.Org, patch.Name, patch.DryRun))
 }
 
 type Output struct {
-	Token string `query:"token"`
+	Org    string `query:"org"`
+	Patch  string `query:"patch"`
+	DryRun bool   `query:"dry-run"`
+	Token  string `query:"token"`
 }
 
 func (fh *FanoutHandler) OutputHandler(c echo.Context) error {
@@ -78,8 +81,8 @@ func (fh *FanoutHandler) OutputHandler(c echo.Context) error {
 	}
 	if done {
 		c.Response().Writer.WriteHeader(StopPollingStatus) // HTMX handles the semantics here
-		return renderView(c, views.Output(lines))
+		return renderView(c, views.Output(lines, output.Org, output.Patch, output.DryRun))
 	} else {
-		return renderView(c, views.Output(lines))
+		return renderView(c, views.Output(lines, output.Org, output.Patch, false))
 	}
 }

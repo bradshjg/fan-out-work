@@ -12,8 +12,20 @@ func parseLines(logs []string) []string {
     return lines
 }
 
-templ Output(logs []string) {
+templ RunForm(org string, patch string) {
+    <form hx-post="/run" hx-swap="outerHTML" style="display: flex; flex-direction: column">
+        <input type="hidden" name="org" value={ org } />
+        <input type="hidden" name="patch" value={ patch } />
+        <input type="hidden" name="dry-run" value={ false } />
+		<input type="submit" value="Run" />
+	</form>
+}
+
+templ Output(logs []string, org string, patch string, dryRunDone bool) {
     for _, line := range(parseLines(logs)) {
         <pre><code>{ line }</code></pre>
+    }
+    if dryRunDone {
+        @RunForm(org, patch)
     }
 }
