@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -26,17 +27,17 @@ type config struct {
 }
 
 type PatchRun struct {
-	accessToken string
-	org         string
-	patchName   string
-	dryRun      bool
-	executor    executor
+	AccessToken string
+	Org         string
+	PatchName   string
+	DryRun      bool
+	Executor    executor
 }
 
 type FanoutService interface {
 	Patches() ([]string, error)
 	Run(pr PatchRun) (string, error)
-	Output(token string) (chan string, error)
+	Output(token string) ([]string, bool, error)
 }
 
 func NewFanoutService() FanoutService {
@@ -59,51 +60,61 @@ func generateStreamName() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to read random bytes: %w", err)
 	}
-	return base64.URLEncoding.EncodeToString(b), nil
+	name := base64.URLEncoding.EncodeToString(b)
+	return name, nil
 }
 
-type executorImpl struct {
-	streamName string
-}
+type executorImpl struct{}
 
 func (ex *executorImpl) Run(er executorRun) error {
 	cmd := exec.Command("multi-gitter", er.args...)
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatalf("Error creating StdoutPipe: %v", err)
+		return err
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return err
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("Error starting command: %v", err)
+		return err
 	}
 
 	ch := make(chan string, 10)
-	outputMap.Store(ex.streamName, ch)
+	outputMap.Store(er.streamName, ch)
 
 	go func() {
-		defer ex.closeOutputChannel(ch)
-		scanner := bufio.NewScanner(stdoutPipe)
+		defer close(ch)
+		var wg sync.WaitGroup
 
-		for scanner.Scan() {
-			line := scanner.Text()
-			ch <- line
-		}
+		wg.Go(func() {
+			collectOutput(ch, stdoutPipe)
+		})
 
-		if err := scanner.Err(); err != nil {
-			log.Printf("error reading stdout: %v", err)
-		}
+		wg.Go(func() {
+			collectOutput(ch, stderrPipe)
+		})
 
 		if err := cmd.Wait(); err != nil {
 			log.Printf("command finished with error: %v", err)
 		}
+
+		wg.Wait()
 	}()
 	return nil
 }
 
-func (ex *executorImpl) closeOutputChannel(ch chan string) {
-	close(ch)
-	outputMap.Delete(ex.streamName)
+func collectOutput(ch chan string, readPipe io.ReadCloser) {
+	scanner := bufio.NewScanner(readPipe)
+	for scanner.Scan() {
+		ch <- scanner.Text()
+	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("error reading pipe: %v", err)
+	}
 }
 
 type FanoutServiceImpl struct{}
@@ -127,8 +138,8 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !slices.Contains(possiblePatches, pr.patchName) {
-		return "", fmt.Errorf("invalid patch name: %s", pr.patchName)
+	if !slices.Contains(possiblePatches, pr.PatchName) {
+		return "", fmt.Errorf("invalid patch name: %s", pr.PatchName)
 	}
 	args, err := fs.execArgs(pr)
 	if err != nil {
@@ -139,10 +150,10 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 		return "", err
 	}
 	var executor executor
-	if pr.executor == nil {
+	if pr.Executor == nil {
 		executor = &executorImpl{}
 	} else {
-		executor = pr.executor
+		executor = pr.Executor
 	}
 	executorRun := executorRun{
 		args:       args,
@@ -155,12 +166,24 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 	return executorRun.streamName, nil
 }
 
-func (*FanoutServiceImpl) Output(streamName string) (chan string, error) {
+func (*FanoutServiceImpl) Output(streamName string) ([]string, bool, error) {
 	ch, ok := outputMap.Load(streamName)
 	if !ok {
-		return nil, fmt.Errorf("no stream found for name %s", streamName)
+		return []string{}, false, fmt.Errorf("no stream found for name %s", streamName)
 	}
-	return ch.(chan string), nil
+	var outputLines []string
+	for {
+		select {
+		case line, ok := <-ch.(chan string):
+			if !ok {
+				outputMap.Delete(streamName)
+				return outputLines, true, nil
+			}
+			outputLines = append(outputLines, line)
+		default:
+			return outputLines, false, nil
+		}
+	}
 }
 
 func (fs *FanoutServiceImpl) execArgs(pr PatchRun) ([]string, error) {
@@ -168,17 +191,18 @@ func (fs *FanoutServiceImpl) execArgs(pr PatchRun) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	patch := fmt.Sprintf("patches/%s/patch", pr.patchName)
+	patch := fmt.Sprintf("patches/%s/patch", pr.PatchName)
 	args := []string{
 		"run",
 		patch,
-		"--token", pr.accessToken,
-		"--org", pr.org,
+		"--token", pr.AccessToken,
+		"--org", pr.Org,
 		"--branch", cfg.Branch,
 		"--pr-title", cfg.PRTitle,
 		"--pr-body", cfg.PRBody,
+		"--plain-output",
 	}
-	if pr.dryRun {
+	if pr.DryRun {
 		args = append(args, "--log-level", "debug", "--dry-run")
 	}
 
@@ -190,7 +214,7 @@ func (fs *FanoutServiceImpl) patchConfig(pr PatchRun) (config, error) {
 	if err != nil {
 		return config{}, err
 	}
-	patchRoot, err := patchesRoot.OpenRoot(pr.patchName)
+	patchRoot, err := patchesRoot.OpenRoot(pr.PatchName)
 	if err != nil {
 		return config{}, err
 	}

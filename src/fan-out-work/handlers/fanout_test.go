@@ -14,9 +14,13 @@ import (
 
 type mockGitHubService struct{}
 
-func (*mockGitHubService) GetOrgs(c echo.Context) ([]string, error) {
+func (*mockGitHubService) Orgs(c echo.Context) ([]string, error) {
 	orgs := []string{"howdy", "there"}
 	return orgs, nil
+}
+
+func (*mockGitHubService) AccessToken(c echo.Context) (string, error) {
+	return "access-token", nil
 }
 
 type mockFanoutService struct{}
@@ -29,8 +33,8 @@ func (*mockFanoutService) Run(pr services.PatchRun) (string, error) {
 	return "token", nil
 }
 
-func (*mockFanoutService) Output(token string) (chan string, error) {
-	return make(chan string), nil
+func (*mockFanoutService) Output(token string) ([]string, bool, error) {
+	return []string{}, true, nil
 }
 
 func TestHomeHandler(t *testing.T) {

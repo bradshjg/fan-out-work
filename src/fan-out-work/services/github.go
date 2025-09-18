@@ -8,7 +8,8 @@ import (
 )
 
 type GitHubService interface {
-	GetOrgs(c echo.Context) ([]string, error)
+	Orgs(c echo.Context) ([]string, error)
+	AccessToken(c echo.Context) (string, error)
 }
 
 func NewGitHubService(oauthService *OAuthService) *GitHubAPIService {
@@ -21,9 +22,17 @@ type GitHubAPIService struct {
 	oauthService *OAuthService
 }
 
-func (gs *GitHubAPIService) GetOrgs(c echo.Context) ([]string, error) {
+func (gs *GitHubAPIService) AccessToken(c echo.Context) (string, error) {
+	token, err := gs.oauthService.AccessToken(c)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func (gs *GitHubAPIService) Orgs(c echo.Context) ([]string, error) {
 	ctx := context.Background()
-	client, err := gs.oauthService.GetClient(c)
+	client, err := gs.oauthService.Client(c)
 	if err != nil {
 		return []string{}, err
 	}

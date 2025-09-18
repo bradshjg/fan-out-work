@@ -1,0 +1,8 @@
+package views
+
+templ Run(outputToken string) {
+    <div hx-get="/output" hx-include="find [name='token']" hx-target="#output-container" hx-swap="beforeend" hx-trigger="every 1s">
+        <input type="hidden" name="token" value={ outputToken }>
+        <p id="output-container"></p>
+    </div>
+}

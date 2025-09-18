@@ -36,11 +36,11 @@ func TestRun(t *testing.T) {
 	capturedArgs = []string{} // reset arg capture
 	fs := NewFanoutService()
 	pr := PatchRun{
-		accessToken: "gh-api-token",
-		org:         "gh-org",
-		patchName:   "example",
-		dryRun:      false,
-		executor:    &mockExecutor{},
+		AccessToken: "gh-api-token",
+		Org:         "gh-org",
+		PatchName:   "example",
+		DryRun:      false,
+		Executor:    &mockExecutor{},
 	}
 	_, err := fs.Run(pr)
 	expectedArgs := []string{ // see patches/example/config.yml
@@ -51,6 +51,7 @@ func TestRun(t *testing.T) {
 		"--branch", "example-patch-pr-branch",
 		"--pr-title", "Example PR Title",
 		"--pr-body", "This is an example PR body.\n\nIt might contain multiple lines.\n",
+		"--plain-output",
 	}
 	assert.Nil(t, err, "Expected nil error, got %v", err)
 	assert.Equal(t, expectedArgs, capturedArgs, "Expected %v to be %v", capturedArgs, expectedArgs)
@@ -61,11 +62,11 @@ func TestDryRun(t *testing.T) {
 	capturedArgs = []string{} // reset arg capture
 	fs := NewFanoutService()
 	pr := PatchRun{
-		accessToken: "gh-api-token",
-		org:         "gh-org",
-		patchName:   "example",
-		dryRun:      true,
-		executor:    &mockExecutor{},
+		AccessToken: "gh-api-token",
+		Org:         "gh-org",
+		PatchName:   "example",
+		DryRun:      true,
+		Executor:    &mockExecutor{},
 	}
 	_, err := fs.Run(pr)
 	expectedArgs := []string{ // see patches/example/config.yml
@@ -76,6 +77,7 @@ func TestDryRun(t *testing.T) {
 		"--branch", "example-patch-pr-branch",
 		"--pr-title", "Example PR Title",
 		"--pr-body", "This is an example PR body.\n\nIt might contain multiple lines.\n",
+		"--plain-output",
 		"--log-level", "debug",
 		"--dry-run",
 	}
@@ -88,11 +90,11 @@ func TestInvalidPatchName(t *testing.T) {
 	capturedArgs = []string{} // reset arg capture
 	fs := NewFanoutService()
 	pr := PatchRun{
-		accessToken: "gh-api-token",
-		org:         "gh-org",
-		patchName:   "../../invalid-patch",
-		dryRun:      true,
-		executor:    &mockExecutor{},
+		AccessToken: "gh-api-token",
+		Org:         "gh-org",
+		PatchName:   "../../invalid-patch",
+		DryRun:      true,
+		Executor:    &mockExecutor{},
 	}
 	_, err := fs.Run(pr)
 	assert.NotNil(t, err, "Expected error got nil")

@@ -26,6 +26,8 @@ func main() {
 	gh := handlers.NewGitHubHandler(*os)
 
 	e.GET("/", fh.HomeHandler)
+	e.POST("/run", fh.RunHandler)
+	e.GET("/output", fh.OutputHandler)
 	e.GET("/github/login", gh.OAuthHandler)
 	e.GET("/github/callback", gh.OAuthCallbackHandler)
 	e.GET("/*", handlers.RouteNotFoundHandler)

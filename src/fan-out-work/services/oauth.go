@@ -81,12 +81,20 @@ func (os *OAuthService) StoreToken(c echo.Context) error {
 	return nil
 }
 
-func (os *OAuthService) GetClient(c echo.Context) (*githubClient.Client, error) {
+func (os *OAuthService) Client(c echo.Context) (*githubClient.Client, error) {
 	token, err := os.getToken(c)
 	if err != nil {
 		return nil, err
 	}
 	return githubClient.NewClient(nil).WithAuthToken(token.AccessToken), nil
+}
+
+func (os *OAuthService) AccessToken(c echo.Context) (string, error) {
+	token, err := os.getToken(c)
+	if err != nil {
+		return "", err
+	}
+	return token.AccessToken, nil
 }
 
 func (os *OAuthService) getState(c echo.Context) (string, error) {

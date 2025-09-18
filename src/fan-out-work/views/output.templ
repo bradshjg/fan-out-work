@@ -1,0 +1,19 @@
+package views
+
+import (
+    "strings"
+)
+
+func parseLines(logs []string) []string {
+    var lines []string
+    for _, log := range(logs) {
+        lines = append(lines, strings.Split(log, `\n`)...)
+    }
+    return lines
+}
+
+templ Output(logs []string) {
+    for _, line := range(parseLines(logs)) {
+        <pre><code>{ line }</code></pre>
+    }
+}
