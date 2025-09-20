@@ -146,12 +146,30 @@ func (os *OAuthService) get(c echo.Context, key string) (string, error) {
 	return "", errors.New("key not found")
 }
 
+func getOauthEndpoint() oauth2.Endpoint {
+	authURL := os.Getenv("GITHUB_OAUTH_AUTH_URL")
+	tokenURL := os.Getenv("GITHUB_OAUTH_TOKEN_URL")
+
+	if authURL == "" {
+		authURL = github.Endpoint.AuthURL
+	}
+
+	if tokenURL == "" {
+		tokenURL = github.Endpoint.TokenURL
+	}
+
+	return oauth2.Endpoint{
+		AuthURL:  authURL,
+		TokenURL: tokenURL,
+	}
+}
+
 var githubOauthConfig = &oauth2.Config{
 	ClientID:     os.Getenv("GITHUB_OAUTH_CLIENT_ID"),
 	ClientSecret: os.Getenv("GITHUB_OAUTH_CLIENT_SECRET"),
 	RedirectURL:  os.Getenv("GITHUB_OAUTH_REDIRECT_URL"),
 	Scopes:       strings.Split(os.Getenv("GITHUB_OAUTH_SCOPES"), ","),
-	Endpoint:     github.Endpoint,
+	Endpoint:     getOauthEndpoint(),
 }
 
 // generateRandomState generates a cryptographically secure random string for OAuth state.
