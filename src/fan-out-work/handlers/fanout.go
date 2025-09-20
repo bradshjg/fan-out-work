@@ -23,12 +23,15 @@ type FanoutHandler struct {
 func (fh *FanoutHandler) HomeHandler(c echo.Context) error {
 	_, err := fh.fanoutService.AccessToken(c)
 	if err != nil {
+		// assume this is an issue with the session, force re-auth
 		fh.fanoutService.ClearSession(c)
 		return renderView(c, views.Index(false, []string{}, []string{}))
 	}
 	orgs, err := fh.fanoutService.Orgs(c)
 	if err != nil {
-		return fmt.Errorf("unable to get orgs: %w", err)
+		// assume this is in an issue with the token, force re-auth
+		fh.fanoutService.ClearSession(c)
+		return renderView(c, views.Index(false, []string{}, []string{}))
 	}
 	patches, err := fh.fanoutService.Patches()
 	if err != nil {
