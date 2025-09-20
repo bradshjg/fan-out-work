@@ -7,4 +7,9 @@ function dev {
     templ generate --watch --proxy="http://localhost:8080" --cmd="go run ."
 }
 
+function local {
+    cd "$SCRIPT_DIR/src/fan-out-work"
+    go run .
+}
+
 "$@"
