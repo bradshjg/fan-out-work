@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	githubClient "github.com/google/go-github/v74/github"
 	"github.com/gorilla/sessions"
@@ -168,7 +167,7 @@ var githubOauthConfig = &oauth2.Config{
 	ClientID:     os.Getenv("GITHUB_OAUTH_CLIENT_ID"),
 	ClientSecret: os.Getenv("GITHUB_OAUTH_CLIENT_SECRET"),
 	RedirectURL:  os.Getenv("GITHUB_OAUTH_REDIRECT_URL"),
-	Scopes:       strings.Split(os.Getenv("GITHUB_OAUTH_SCOPES"), ","),
+	Scopes:       []string{"repo"},
 	Endpoint:     getOauthEndpoint(),
 }
 
