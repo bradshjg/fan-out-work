@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,16 +32,37 @@ func chdir(t *testing.T, dir string) func() {
 	}
 }
 
+func NewMockFanoutService() FanoutService {
+	return &FanoutServiceImpl{
+		githubService:    &mockGitHubService{},
+		patchRunExecutor: &mockExecutor{},
+	}
+}
+
+type mockGitHubService struct {
+}
+
+func (*mockGitHubService) ClearSession(c echo.Context) {
+}
+
+func (*mockGitHubService) AccessToken(c echo.Context) (string, error) {
+	return "access-token", nil
+}
+
+func (*mockGitHubService) Orgs(c echo.Context) ([]string, error) {
+	orgs := []string{"howdy", "there"}
+	return orgs, nil
+}
+
 func TestRun(t *testing.T) {
 	defer chdir(t, "..")()
 	capturedArgs = []string{} // reset arg capture
-	fs := NewFanoutService()
+	fs := NewMockFanoutService()
 	pr := PatchRun{
 		AccessToken: "gh-api-token",
 		Org:         "gh-org",
 		Patch:       "example",
 		DryRun:      false,
-		Executor:    &mockExecutor{},
 	}
 	_, err := fs.Run(pr)
 	expectedArgs := []string{ // see patches/example/config.yml
@@ -60,13 +82,12 @@ func TestRun(t *testing.T) {
 func TestDryRun(t *testing.T) {
 	defer chdir(t, "..")()
 	capturedArgs = []string{} // reset arg capture
-	fs := NewFanoutService()
+	fs := NewMockFanoutService()
 	pr := PatchRun{
 		AccessToken: "gh-api-token",
 		Org:         "gh-org",
 		Patch:       "example",
 		DryRun:      true,
-		Executor:    &mockExecutor{},
 	}
 	_, err := fs.Run(pr)
 	expectedArgs := []string{ // see patches/example/config.yml
@@ -88,13 +109,12 @@ func TestDryRun(t *testing.T) {
 func TestInvalidPatchName(t *testing.T) {
 	defer chdir(t, "..")()
 	capturedArgs = []string{} // reset arg capture
-	fs := NewFanoutService()
+	fs := NewMockFanoutService()
 	pr := PatchRun{
 		AccessToken: "gh-api-token",
 		Org:         "gh-org",
 		Patch:       "../../invalid-patch",
 		DryRun:      true,
-		Executor:    &mockExecutor{},
 	}
 	_, err := fs.Run(pr)
 	assert.NotNil(t, err, "Expected error got nil")

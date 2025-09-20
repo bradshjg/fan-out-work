@@ -22,6 +22,9 @@ const (
 	sessionName = "fan_out_work_github"
 )
 
+var ErrSessionNotValid = errors.New("session not valid")
+var ErrKeyNotFound = errors.New("key not found")
+
 func NewOauthService(sessionStore *sessions.CookieStore) *OAuthService {
 	return &OAuthService{
 		oauthConfig:  githubOauthConfig,
@@ -41,6 +44,13 @@ type OAuthService struct {
 type OAuthCallbackParams struct {
 	State string `query:"state"`
 	Code  string `query:"code"`
+}
+
+func (os *OAuthService) ClearSession(c echo.Context) {
+	session, _ := os.sessionStore.Get(c.Request(), sessionName)
+	session.Options.MaxAge = -1
+
+	os.sessionStore.Save(c.Request(), c.Response(), session)
 }
 
 func (os *OAuthService) RedirectURL(c echo.Context) (string, error) {
@@ -137,12 +147,12 @@ func (os *OAuthService) store(c echo.Context, key string, value string) error {
 func (os *OAuthService) get(c echo.Context, key string) (string, error) {
 	session, err := os.sessionStore.Get(c.Request(), os.sessionName)
 	if err != nil {
-		return "", err
+		return "", ErrSessionNotValid
 	}
 	if v, ok := session.Values[key].(string); ok {
 		return v, nil
 	}
-	return "", errors.New("key not found")
+	return "", ErrKeyNotFound
 }
 
 func getOauthEndpoint() oauth2.Endpoint {

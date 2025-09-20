@@ -9,21 +9,22 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-var (
-	SessionAuthKey = securecookie.GenerateRandomKey(32)
-	SessionEncKey  = securecookie.GenerateRandomKey(32)
-)
-
 func main() {
 	e := echo.New()
 
 	e.Static("/static", "assets")
-	sessionStore := sessions.NewCookieStore(SessionAuthKey, SessionEncKey)
+	sessionStore := sessions.NewCookieStore(securecookie.GenerateRandomKey(32), securecookie.GenerateRandomKey(32))
+	sessionStore.Options = &sessions.Options{
+		Path:   "/",
+		MaxAge: 86400, // 1 day
+	}
 	e.Use(session.Middleware(sessionStore))
 	os := services.NewOauthService(sessionStore)
+	gs := services.NewGitHubService(os)
+	fs := services.NewFanoutService(gs)
 
-	fh := handlers.NewFanoutHandler(services.NewGitHubService(os), services.NewFanoutService())
-	gh := handlers.NewGitHubHandler(*os)
+	fh := handlers.NewFanoutHandler(fs)
+	gh := handlers.NewGitHubHandler(os)
 
 	e.GET("/", fh.HomeHandler)
 	e.POST("/run", fh.RunHandler)

@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert/yaml"
 )
 
@@ -31,17 +32,21 @@ type PatchRun struct {
 	Org         string
 	Patch       string
 	DryRun      bool
-	Executor    executor
 }
 
 type FanoutService interface {
+	ClearSession(c echo.Context)
+	AccessToken(c echo.Context) (string, error)
+	Orgs(c echo.Context) ([]string, error)
 	Patches() ([]string, error)
 	Run(pr PatchRun) (string, error)
 	Output(token string) ([]string, bool, error)
 }
 
-func NewFanoutService() FanoutService {
-	return &FanoutServiceImpl{}
+func NewFanoutService(githubService GitHubService) *FanoutServiceImpl {
+	return &FanoutServiceImpl{
+		githubService: githubService,
+	}
 }
 
 type executorRun struct {
@@ -117,7 +122,30 @@ func collectOutput(ch chan string, readPipe io.ReadCloser) {
 	}
 }
 
-type FanoutServiceImpl struct{}
+type FanoutServiceImpl struct {
+	githubService    GitHubService
+	patchRunExecutor executor
+}
+
+func (fs *FanoutServiceImpl) ClearSession(c echo.Context) {
+	fs.githubService.ClearSession(c)
+}
+
+func (fs *FanoutServiceImpl) AccessToken(c echo.Context) (string, error) {
+	token, err := fs.githubService.AccessToken(c)
+	if err != nil {
+		return "", fmt.Errorf("error getting access token: %w", err)
+	}
+	return token, nil
+}
+
+func (fs *FanoutServiceImpl) Orgs(c echo.Context) ([]string, error) {
+	orgs, err := fs.githubService.Orgs(c)
+	if err != nil {
+		return []string{}, fmt.Errorf("error listing orgs: %w", err)
+	}
+	return orgs, nil
+}
 
 func (*FanoutServiceImpl) Patches() ([]string, error) {
 	var patches []string
@@ -150,10 +178,10 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 		return "", err
 	}
 	var executor executor
-	if pr.Executor == nil {
+	if fs.patchRunExecutor == nil {
 		executor = &executorImpl{}
 	} else {
-		executor = pr.Executor
+		executor = fs.patchRunExecutor
 	}
 	executorRun := executorRun{
 		args:       args,

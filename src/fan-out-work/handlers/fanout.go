@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/bradshjg/fan-out-work/services"
 	"github.com/bradshjg/fan-out-work/views"
@@ -11,26 +10,31 @@ import (
 
 const StopPollingStatus = 286
 
-func NewFanoutHandler(githubService services.GitHubService, fanoutService services.FanoutService) *FanoutHandler {
+func NewFanoutHandler(fanoutService services.FanoutService) *FanoutHandler {
 	return &FanoutHandler{
-		githubService: githubService,
 		fanoutService: fanoutService,
 	}
 }
 
 type FanoutHandler struct {
-	githubService services.GitHubService
 	fanoutService services.FanoutService
 }
 
 func (fh *FanoutHandler) HomeHandler(c echo.Context) error {
-	orgs, err := fh.githubService.Orgs(c)
-	authenticated := err == nil
+	_, err := fh.fanoutService.AccessToken(c)
+	if err != nil {
+		fh.fanoutService.ClearSession(c)
+		return renderView(c, views.Index(false, []string{}, []string{}))
+	}
+	orgs, err := fh.fanoutService.Orgs(c)
+	if err != nil {
+		return fmt.Errorf("unable to get orgs: %w", err)
+	}
 	patches, err := fh.fanoutService.Patches()
 	if err != nil {
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("error getting patches: %v", err))
+		return fmt.Errorf("error getting patches: %w", err)
 	}
-	return renderView(c, views.Index(authenticated, orgs, patches))
+	return renderView(c, views.Index(true, orgs, patches))
 }
 
 type Patch struct {
@@ -43,11 +47,11 @@ func (fh *FanoutHandler) RunHandler(c echo.Context) error {
 	patch := new(Patch)
 	err := c.Bind(patch)
 	if err != nil {
-		return c.String(http.StatusBadRequest, fmt.Sprintf("invalid request: %v", err))
+		return fmt.Errorf("invalid request: %w", err)
 	}
-	token, err := fh.githubService.AccessToken(c)
+	token, err := fh.fanoutService.AccessToken(c)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("error getting access token: %v", err))
+		return fmt.Errorf("error getting access token: %w", err)
 	}
 	pr := services.PatchRun{
 		AccessToken: token,
@@ -57,7 +61,7 @@ func (fh *FanoutHandler) RunHandler(c echo.Context) error {
 	}
 	outputToken, err := fh.fanoutService.Run(pr)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("error getting output token: %v", err))
+		return fmt.Errorf("error getting output token: %w", err)
 	}
 	return renderView(c, views.Run(outputToken, patch.Org, patch.Name, patch.DryRun))
 }
@@ -73,11 +77,11 @@ func (fh *FanoutHandler) OutputHandler(c echo.Context) error {
 	var output Output
 	err := c.Bind(&output)
 	if err != nil {
-		return c.String(http.StatusBadRequest, fmt.Sprintf("invalid request: %v", err))
+		return fmt.Errorf("invalid request: %w", err)
 	}
 	lines, done, err := fh.fanoutService.Output(output.Token)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("error getting output: %v", err))
+		return fmt.Errorf("error getting output: %w", err)
 	}
 	if done {
 		c.Response().Writer.WriteHeader(StopPollingStatus) // HTMX handles the semantics here

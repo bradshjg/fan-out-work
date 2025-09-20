@@ -12,18 +12,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockGitHubService struct{}
+type mockFanoutService struct{}
 
-func (*mockGitHubService) Orgs(c echo.Context) ([]string, error) {
-	orgs := []string{"howdy", "there"}
-	return orgs, nil
+func (*mockFanoutService) ClearSession(c echo.Context) {
 }
 
-func (*mockGitHubService) AccessToken(c echo.Context) (string, error) {
+func (*mockFanoutService) AccessToken(c echo.Context) (string, error) {
 	return "access-token", nil
 }
 
-type mockFanoutService struct{}
+func (*mockFanoutService) Orgs(c echo.Context) ([]string, error) {
+	orgs := []string{"howdy", "there"}
+	return orgs, nil
+}
 
 func (*mockFanoutService) Patches() ([]string, error) {
 	return []string{"foo", "bar"}, nil
@@ -42,7 +43,7 @@ func TestHomeHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	h := NewFanoutHandler(&mockGitHubService{}, &mockFanoutService{})
+	h := NewFanoutHandler(&mockFanoutService{})
 	if assert.NoError(t, h.HomeHandler(c)) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(rec.Body.String()))
