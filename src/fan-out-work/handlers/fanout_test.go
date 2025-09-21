@@ -31,11 +31,11 @@ func (*mockFanoutService) Patches() ([]string, error) {
 }
 
 func (*mockFanoutService) Run(pr services.PatchRun) (string, error) {
-	return "token", nil
+	return "output token", nil
 }
 
-func (*mockFanoutService) Status(pr services.PatchRun) ([]string, error) {
-	return []string{"token"}, nil
+func (*mockFanoutService) Status(c echo.Context, pr services.PatchRun) (string, error) {
+	return "issue link", nil
 }
 
 func (*mockFanoutService) Output(token string) ([]string, bool, error) {

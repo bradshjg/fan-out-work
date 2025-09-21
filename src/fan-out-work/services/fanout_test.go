@@ -1,6 +1,8 @@
 package services
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -21,7 +23,7 @@ type mockStatusExecutor struct{}
 
 func (*mockStatusExecutor) Status(er executorStatus) ([]string, error) {
 	capturedArgs = er.args
-	return []string{}, nil
+	return []string{"issue 1", "issue 2"}, nil
 }
 
 func chdir(t *testing.T, dir string) func() {
@@ -62,16 +64,28 @@ func (*mockGitHubService) Orgs(c echo.Context) ([]string, error) {
 	return orgs, nil
 }
 
+var capturedIssue Issue
+
+func (*mockGitHubService) GetOrCreateIssue(c echo.Context, i Issue) (string, error) {
+	capturedIssue = i
+	return "issue link", nil
+}
+
 func TestStatus(t *testing.T) {
 	defer chdir(t, "..")()
 	capturedArgs = []string{} // reset arg capture
+	capturedIssue = Issue{}   // reset issue capture
 	fs := NewMockFanoutService()
 	pr := PatchRun{
 		AccessToken: "gh-api-token",
 		Org:         "gh-org",
 		Patch:       "example",
 	}
-	_, err := fs.Status(pr)
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/status", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	_, err := fs.Status(c, pr)
 	expectedArgs := []string{ // see patches/example/config.yml
 		"status",
 		"--token", "gh-api-token",
@@ -80,6 +94,12 @@ func TestStatus(t *testing.T) {
 	}
 	assert.Nil(t, err, "Expected nil error, got %v", err)
 	assert.Equal(t, expectedArgs, capturedArgs, "Expected %v to be %v", capturedArgs, expectedArgs)
+	expectedIssue := Issue{
+		Owner: "gh-org",
+		Title: "Example PR Title",
+		Body:  "\n* issue 1\n* issue 2",
+	}
+	assert.Equal(t, expectedIssue, capturedIssue, "Expected %v to be %v", capturedIssue, expectedIssue)
 }
 
 func TestRun(t *testing.T) {

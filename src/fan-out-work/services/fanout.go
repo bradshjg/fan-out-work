@@ -2,6 +2,7 @@ package services
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"slices"
 	"sync"
+	"text/template"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert/yaml"
@@ -41,7 +43,7 @@ type FanoutService interface {
 	Orgs(c echo.Context) ([]string, error)
 	Patches() ([]string, error)
 	Run(pr PatchRun) (string, error)
-	Status(pr PatchRun) ([]string, error)
+	Status(c echo.Context, pr PatchRun) (string, error)
 	Output(token string) ([]string, bool, error)
 }
 
@@ -241,17 +243,17 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 	return executorRun.streamName, nil
 }
 
-func (fs *FanoutServiceImpl) Status(pr PatchRun) ([]string, error) {
+func (fs *FanoutServiceImpl) Status(c echo.Context, pr PatchRun) (string, error) {
 	possiblePatches, err := fs.Patches()
 	if err != nil {
-		return []string{}, err
+		return "", err
 	}
 	if !slices.Contains(possiblePatches, pr.Patch) {
-		return []string{}, fmt.Errorf("invalid patch name: %s", pr.Patch)
+		return "", fmt.Errorf("invalid patch name: %s", pr.Patch)
 	}
 	args, err := fs.statusArgs(pr)
 	if err != nil {
-		return []string{}, err
+		return "", err
 	}
 	var statusExecutor statusExecutor
 	if fs.patchStatusExecutor == nil {
@@ -264,9 +266,36 @@ func (fs *FanoutServiceImpl) Status(pr PatchRun) ([]string, error) {
 	}
 	prLinks, err := statusExecutor.Status(executorStatus)
 	if err != nil {
-		return []string{}, err
+		return "", err
 	}
-	return prLinks, nil
+	patchCfg, err := fs.patchConfig(pr)
+	if err != nil {
+		return "", err
+	}
+	const bodyTemplate = `
+{{- range .}}
+* {{.}}
+{{- end}}`
+	t, err := template.New("body").Parse(bodyTemplate)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	err = t.Execute(&buf, prLinks)
+	if err != nil {
+		return "", err
+	}
+	issueBody := buf.String()
+	issue := Issue{
+		Owner: pr.Org,
+		Title: patchCfg.PRTitle,
+		Body:  issueBody,
+	}
+	issueLink, err := fs.githubService.GetOrCreateIssue(c, issue)
+	if err != nil {
+		return "", err
+	}
+	return issueLink, nil
 }
 
 func (*FanoutServiceImpl) Output(streamName string) ([]string, bool, error) {

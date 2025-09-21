@@ -88,7 +88,7 @@ func RunForm(org string, patch string) templ.Component {
 	})
 }
 
-func Output(logs []string, org string, patch string, dryRunDone bool) templ.Component {
+func Output(logs []string, org string, patch string, dryRun bool, done bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -128,8 +128,14 @@ func Output(logs []string, org string, patch string, dryRunDone bool) templ.Comp
 				return templ_7745c5c3_Err
 			}
 		}
-		if dryRunDone {
+		if dryRun && done {
 			templ_7745c5c3_Err = RunForm(org, patch).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		if !dryRun && done {
+			templ_7745c5c3_Err = StatusForm(org, patch).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

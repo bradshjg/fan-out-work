@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/bradshjg/fan-out-work/middleware"
 	"github.com/bradshjg/fan-out-work/services"
@@ -49,9 +48,9 @@ func (fh *FanoutHandler) reAuthenticate(c echo.Context) error {
 }
 
 type Patch struct {
-	Org    string `form:"org" query:"org"`
-	Name   string `form:"patch" query:"patch"`
-	DryRun bool   `form:"dry-run" query:"dry-run"`
+	Org    string `form:"org"`
+	Name   string `form:"patch"`
+	DryRun bool   `form:"dry-run"`
 }
 
 func (fh *FanoutHandler) RunHandler(c echo.Context) error {
@@ -92,11 +91,11 @@ func (fh *FanoutHandler) StatusHandler(c echo.Context) error {
 		Org:         patch.Org,
 		Patch:       patch.Name,
 	}
-	prLinks, err := fh.fanoutService.Status(pr)
+	issueLink, err := fh.fanoutService.Status(c, pr)
 	if err != nil {
 		return fmt.Errorf("error handling status: %w", err)
 	}
-	return c.String(http.StatusOK, strings.Join(prLinks, "\n"))
+	return c.String(http.StatusOK, issueLink)
 }
 
 type Output struct {
@@ -118,8 +117,6 @@ func (fh *FanoutHandler) OutputHandler(c echo.Context) error {
 	}
 	if done {
 		c.Response().Writer.WriteHeader(StopPollingStatus) // HTMX handles the semantics here
-		return renderView(c, views.Output(lines, output.Org, output.Patch, output.DryRun))
-	} else {
-		return renderView(c, views.Output(lines, output.Org, output.Patch, false))
 	}
+	return renderView(c, views.Output(lines, output.Org, output.Patch, output.DryRun, done))
 }

@@ -21,11 +21,14 @@ templ RunForm(org string, patch string) {
 	</form>
 }
 
-templ Output(logs []string, org string, patch string, dryRunDone bool) {
+templ Output(logs []string, org string, patch string, dryRun bool, done bool) {
     for _, line := range(parseLines(logs)) {
         <pre><code>{ line }</code></pre>
     }
-    if dryRunDone {
+    if dryRun && done {
         @RunForm(org, patch)
+    }
+    if !dryRun && done {
+        @StatusForm(org, patch)
     }
 }

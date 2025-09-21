@@ -53,7 +53,7 @@ func main() {
 
 	e.GET("/", fh.HomeHandler)
 	e.POST("/run", fh.RunHandler)
-	e.GET("/status", fh.StatusHandler)
+	e.POST("/status", fh.StatusHandler)
 	e.GET("/output", fh.OutputHandler)
 	e.GET("/github/login", gh.OAuthHandler)
 	e.GET("/github/callback", gh.OAuthCallbackHandler)
