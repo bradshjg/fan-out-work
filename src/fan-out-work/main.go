@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
+
 	"github.com/bradshjg/fan-out-work/handlers"
+	fanoutMiddleware "github.com/bradshjg/fan-out-work/middleware"
 	"github.com/bradshjg/fan-out-work/services"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
@@ -12,13 +15,21 @@ import (
 func main() {
 	e := echo.New()
 
+	e.Debug = os.Getenv("DEBUG") == "true"
+	e.HideBanner = true
+	e.HidePort = true
+	e.Use(fanoutMiddleware.LoggingMiddleware())
+	e.Use(fanoutMiddleware.RequestLoggingMiddleware())
+	e.DisableHTTP2 = true
 	e.Static("/static", "assets")
+	e.HTTPErrorHandler = handlers.HTTPErrorHandler
 	sessionStore := sessions.NewCookieStore(securecookie.GenerateRandomKey(32), securecookie.GenerateRandomKey(32))
 	sessionStore.Options = &sessions.Options{
 		Path:   "/",
 		MaxAge: 86400, // 1 day
 	}
 	e.Use(session.Middleware(sessionStore))
+
 	os := services.NewOauthService(sessionStore)
 	gs := services.NewGitHubService(os)
 	fs := services.NewFanoutService(gs)

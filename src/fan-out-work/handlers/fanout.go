@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
 
+	"github.com/bradshjg/fan-out-work/middleware"
 	"github.com/bradshjg/fan-out-work/services"
 	"github.com/bradshjg/fan-out-work/views"
 	"github.com/labstack/echo/v4"
@@ -24,20 +26,25 @@ func (fh *FanoutHandler) HomeHandler(c echo.Context) error {
 	_, err := fh.fanoutService.AccessToken(c)
 	if err != nil {
 		// assume this is an issue with the session, force re-auth
-		fh.fanoutService.ClearSession(c)
-		return renderView(c, views.Index(false, []string{}, []string{}))
+		return fh.reAuthenticate(c)
 	}
 	orgs, err := fh.fanoutService.Orgs(c)
 	if err != nil {
 		// assume this is in an issue with the token, force re-auth
-		fh.fanoutService.ClearSession(c)
-		return renderView(c, views.Index(false, []string{}, []string{}))
+		return fh.reAuthenticate(c)
 	}
 	patches, err := fh.fanoutService.Patches()
 	if err != nil {
 		return fmt.Errorf("error getting patches: %w", err)
 	}
 	return renderView(c, views.Index(true, orgs, patches))
+}
+
+func (fh *FanoutHandler) reAuthenticate(c echo.Context) error {
+	lc := c.(*middleware.SLoggerContext)
+	lc.SLogger().Info("forcing re-authentication")
+	fh.fanoutService.ClearSession(c)
+	return renderView(c, views.Index(false, []string{}, []string{}))
 }
 
 type Patch struct {
@@ -50,7 +57,7 @@ func (fh *FanoutHandler) RunHandler(c echo.Context) error {
 	patch := new(Patch)
 	err := c.Bind(patch)
 	if err != nil {
-		return fmt.Errorf("invalid request: %w", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request: %w", err)
 	}
 	token, err := fh.fanoutService.AccessToken(c)
 	if err != nil {
@@ -64,7 +71,7 @@ func (fh *FanoutHandler) RunHandler(c echo.Context) error {
 	}
 	outputToken, err := fh.fanoutService.Run(pr)
 	if err != nil {
-		return fmt.Errorf("error getting output token: %w", err)
+		return fmt.Errorf("error handling run: %w", err)
 	}
 	return renderView(c, views.Run(outputToken, patch.Org, patch.Name, patch.DryRun))
 }
@@ -80,7 +87,7 @@ func (fh *FanoutHandler) OutputHandler(c echo.Context) error {
 	var output Output
 	err := c.Bind(&output)
 	if err != nil {
-		return fmt.Errorf("invalid request: %w", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request: %w", err)
 	}
 	lines, done, err := fh.fanoutService.Output(output.Token)
 	if err != nil {
