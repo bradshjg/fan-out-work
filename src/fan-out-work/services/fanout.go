@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"slices"
 	"sync"
 
@@ -40,6 +41,7 @@ type FanoutService interface {
 	Orgs(c echo.Context) ([]string, error)
 	Patches() ([]string, error)
 	Run(pr PatchRun) (string, error)
+	Status(pr PatchRun) ([]string, error)
 	Output(token string) ([]string, bool, error)
 }
 
@@ -54,8 +56,16 @@ type executorRun struct {
 	streamName string
 }
 
-type executor interface {
+type runExecutor interface {
 	Run(er executorRun) error
+}
+
+type executorStatus struct {
+	args []string
+}
+
+type statusExecutor interface {
+	Status(er executorStatus) ([]string, error)
 }
 
 // generateStreamName generates a cryptographically secure random string for output streams.
@@ -69,9 +79,9 @@ func generateStreamName() (string, error) {
 	return name, nil
 }
 
-type executorImpl struct{}
+type runExecutorImpl struct{}
 
-func (ex *executorImpl) Run(er executorRun) error {
+func (ex *runExecutorImpl) Run(er executorRun) error {
 	cmd := exec.Command("multi-gitter", er.args...)
 
 	stdoutPipe, err := cmd.StdoutPipe()
@@ -122,9 +132,46 @@ func collectOutput(ch chan string, readPipe io.ReadCloser) {
 	}
 }
 
+type statusExecutorImpl struct{}
+
+func (ex *statusExecutorImpl) Status(er executorStatus) ([]string, error) {
+	cmd := exec.Command("multi-gitter", er.args...)
+	var output [][]byte
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return []string{}, err
+	}
+	if err := cmd.Start(); err != nil {
+		return []string{}, err
+	}
+	scanner := bufio.NewScanner(stdoutPipe)
+	for scanner.Scan() {
+		output = append(output, scanner.Bytes())
+	}
+	if err := scanner.Err(); err != nil {
+		return []string{}, err
+	}
+	if err := cmd.Wait(); err != nil {
+		return []string{}, err
+	}
+	var prLinks []string
+	// HACK multi-gitter only exposes the PR link as part of a terminal escape sequence; the run process
+	// asks for plain output, but here we assume terminal output and grab the links via regex.
+	// The format is documented at https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+	outputRegex := regexp.MustCompile(`^\x1B]8;;(.*?)\a`)
+	for _, line := range output {
+		matches := outputRegex.FindSubmatch(line)
+		if matches != nil {
+			prLinks = append(prLinks, string(matches[1]))
+		}
+	}
+	return prLinks, nil
+}
+
 type FanoutServiceImpl struct {
-	githubService    GitHubService
-	patchRunExecutor executor
+	githubService       GitHubService
+	patchRunExecutor    runExecutor
+	patchStatusExecutor statusExecutor
 }
 
 func (fs *FanoutServiceImpl) ClearSession(c echo.Context) {
@@ -169,7 +216,7 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 	if !slices.Contains(possiblePatches, pr.Patch) {
 		return "", fmt.Errorf("invalid patch name: %s", pr.Patch)
 	}
-	args, err := fs.execArgs(pr)
+	args, err := fs.runArgs(pr)
 	if err != nil {
 		return "", err
 	}
@@ -177,21 +224,49 @@ func (fs *FanoutServiceImpl) Run(pr PatchRun) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var executor executor
+	var runExecutor runExecutor
 	if fs.patchRunExecutor == nil {
-		executor = &executorImpl{}
+		runExecutor = &runExecutorImpl{}
 	} else {
-		executor = fs.patchRunExecutor
+		runExecutor = fs.patchRunExecutor
 	}
 	executorRun := executorRun{
 		args:       args,
 		streamName: streamName,
 	}
-	err = executor.Run(executorRun)
+	err = runExecutor.Run(executorRun)
 	if err != nil {
 		return "", err
 	}
 	return executorRun.streamName, nil
+}
+
+func (fs *FanoutServiceImpl) Status(pr PatchRun) ([]string, error) {
+	possiblePatches, err := fs.Patches()
+	if err != nil {
+		return []string{}, err
+	}
+	if !slices.Contains(possiblePatches, pr.Patch) {
+		return []string{}, fmt.Errorf("invalid patch name: %s", pr.Patch)
+	}
+	args, err := fs.statusArgs(pr)
+	if err != nil {
+		return []string{}, err
+	}
+	var statusExecutor statusExecutor
+	if fs.patchStatusExecutor == nil {
+		statusExecutor = &statusExecutorImpl{}
+	} else {
+		statusExecutor = fs.patchStatusExecutor
+	}
+	executorStatus := executorStatus{
+		args: args,
+	}
+	prLinks, err := statusExecutor.Status(executorStatus)
+	if err != nil {
+		return []string{}, err
+	}
+	return prLinks, nil
 }
 
 func (*FanoutServiceImpl) Output(streamName string) ([]string, bool, error) {
@@ -214,7 +289,7 @@ func (*FanoutServiceImpl) Output(streamName string) ([]string, bool, error) {
 	}
 }
 
-func (fs *FanoutServiceImpl) execArgs(pr PatchRun) ([]string, error) {
+func (fs *FanoutServiceImpl) runArgs(pr PatchRun) ([]string, error) {
 	cfg, err := fs.patchConfig(pr)
 	if err != nil {
 		return []string{}, err
@@ -232,6 +307,21 @@ func (fs *FanoutServiceImpl) execArgs(pr PatchRun) ([]string, error) {
 	}
 	if pr.DryRun {
 		args = append(args, "--log-level", "debug", "--dry-run")
+	}
+
+	return args, nil
+}
+
+func (fs *FanoutServiceImpl) statusArgs(pr PatchRun) ([]string, error) {
+	cfg, err := fs.patchConfig(pr)
+	if err != nil {
+		return []string{}, err
+	}
+	args := []string{
+		"status",
+		"--token", pr.AccessToken,
+		"--org", pr.Org,
+		"--branch", cfg.Branch,
 	}
 
 	return args, nil

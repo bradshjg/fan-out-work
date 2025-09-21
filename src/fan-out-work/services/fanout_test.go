@@ -8,13 +8,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockExecutor struct{}
-
 var capturedArgs []string
 
-func (*mockExecutor) Run(er executorRun) error {
+type mockRunExecutor struct{}
+
+func (*mockRunExecutor) Run(er executorRun) error {
 	capturedArgs = er.args
 	return nil
+}
+
+type mockStatusExecutor struct{}
+
+func (*mockStatusExecutor) Status(er executorStatus) ([]string, error) {
+	capturedArgs = er.args
+	return []string{}, nil
 }
 
 func chdir(t *testing.T, dir string) func() {
@@ -34,8 +41,9 @@ func chdir(t *testing.T, dir string) func() {
 
 func NewMockFanoutService() FanoutService {
 	return &FanoutServiceImpl{
-		githubService:    &mockGitHubService{},
-		patchRunExecutor: &mockExecutor{},
+		githubService:       &mockGitHubService{},
+		patchRunExecutor:    &mockRunExecutor{},
+		patchStatusExecutor: &mockStatusExecutor{},
 	}
 }
 
@@ -52,6 +60,26 @@ func (*mockGitHubService) AccessToken(c echo.Context) (string, error) {
 func (*mockGitHubService) Orgs(c echo.Context) ([]string, error) {
 	orgs := []string{"howdy", "there"}
 	return orgs, nil
+}
+
+func TestStatus(t *testing.T) {
+	defer chdir(t, "..")()
+	capturedArgs = []string{} // reset arg capture
+	fs := NewMockFanoutService()
+	pr := PatchRun{
+		AccessToken: "gh-api-token",
+		Org:         "gh-org",
+		Patch:       "example",
+	}
+	_, err := fs.Status(pr)
+	expectedArgs := []string{ // see patches/example/config.yml
+		"status",
+		"--token", "gh-api-token",
+		"--org", "gh-org",
+		"--branch", "example-patch-pr-branch",
+	}
+	assert.Nil(t, err, "Expected nil error, got %v", err)
+	assert.Equal(t, expectedArgs, capturedArgs, "Expected %v to be %v", capturedArgs, expectedArgs)
 }
 
 func TestRun(t *testing.T) {

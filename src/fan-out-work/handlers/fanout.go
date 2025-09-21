@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/bradshjg/fan-out-work/middleware"
 	"github.com/bradshjg/fan-out-work/services"
@@ -48,9 +49,9 @@ func (fh *FanoutHandler) reAuthenticate(c echo.Context) error {
 }
 
 type Patch struct {
-	Org    string `form:"org"`
-	Name   string `form:"patch"`
-	DryRun bool   `form:"dry-run"`
+	Org    string `form:"org" query:"org"`
+	Name   string `form:"patch" query:"patch"`
+	DryRun bool   `form:"dry-run" query:"dry-run"`
 }
 
 func (fh *FanoutHandler) RunHandler(c echo.Context) error {
@@ -74,6 +75,28 @@ func (fh *FanoutHandler) RunHandler(c echo.Context) error {
 		return fmt.Errorf("error handling run: %w", err)
 	}
 	return renderView(c, views.Run(outputToken, patch.Org, patch.Name, patch.DryRun))
+}
+
+func (fh *FanoutHandler) StatusHandler(c echo.Context) error {
+	patch := new(Patch)
+	err := c.Bind(patch)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request: %w", err)
+	}
+	token, err := fh.fanoutService.AccessToken(c)
+	if err != nil {
+		return fmt.Errorf("error getting access token: %w", err)
+	}
+	pr := services.PatchRun{
+		AccessToken: token,
+		Org:         patch.Org,
+		Patch:       patch.Name,
+	}
+	prLinks, err := fh.fanoutService.Status(pr)
+	if err != nil {
+		return fmt.Errorf("error handling status: %w", err)
+	}
+	return c.String(http.StatusOK, strings.Join(prLinks, "\n"))
 }
 
 type Output struct {

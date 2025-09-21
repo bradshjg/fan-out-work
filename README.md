@@ -12,7 +12,6 @@ After authenticating to GitHub via OAuth, the user can select a patch to apply t
 
 https://github.com/user-attachments/assets/e9e3bae1-dcdc-4b3c-a6a7-da61d874d857
 
-
 ## TODO
 
 * Optionally? open an issue in the "fan-out-work" repository with links to the generated PRs to track their merge status.

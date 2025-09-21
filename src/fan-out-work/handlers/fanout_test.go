@@ -34,6 +34,10 @@ func (*mockFanoutService) Run(pr services.PatchRun) (string, error) {
 	return "token", nil
 }
 
+func (*mockFanoutService) Status(pr services.PatchRun) ([]string, error) {
+	return []string{"token"}, nil
+}
+
 func (*mockFanoutService) Output(token string) ([]string, bool, error) {
 	return []string{}, true, nil
 }
