@@ -17,7 +17,10 @@ templ RunForm(org string, patch string) {
         <input type="hidden" name="org" value={ org } />
         <input type="hidden" name="patch" value={ patch } />
         <input type="hidden" name="dry-run" value={ false } />
-		<input type="submit" value="Run" />
+		<button type="submit">
+            run
+            <img class="htmx-indicator" src="/static/img/bars.svg"/>
+        </button>
 	</form>
 }
 

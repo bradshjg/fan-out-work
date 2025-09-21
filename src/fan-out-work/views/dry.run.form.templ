@@ -19,6 +19,9 @@ templ DryRunForm(orgs []string, patches []string)  {
 			}
 			</select>
 		</label>
-		<input type="submit" value="Dry run" style="margin-top: 1em;"/>
+		<button type="submit" style="margin-top: 1em;">
+			dry run
+			<img class="htmx-indicator" src="/static/img/bars.svg"/>
+		</button>
 	</form>
 }

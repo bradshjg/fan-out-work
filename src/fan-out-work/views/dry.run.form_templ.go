@@ -114,7 +114,7 @@ func DryRunForm(orgs []string, patches []string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</select></label> <input type=\"submit\" value=\"Dry run\" style=\"margin-top: 1em;\"></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</select></label> <button type=\"submit\" style=\"margin-top: 1em;\">dry run <img class=\"htmx-indicator\" src=\"/static/img/bars.svg\"></button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
