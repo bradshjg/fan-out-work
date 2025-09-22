@@ -1,27 +1,27 @@
 package views
 
 templ DryRunForm(orgs []string, patches []string)  {
-	<form hx-post="/run" hx-swap="outerHTML" style="display: flex; flex-direction: column">
+    <form hx-post="/run" hx-swap="outerHTML" style="display: flex; flex-direction: column">
         <input type="hidden" name="dry-run" value={ true } />
-		<label data-testid="orgs">Select an org:
-			<select name="org">
-				<option></option>
-			for _, org := range orgs {
-				<option value={ org }>{ org }</option>
-			}
-			</select>
-		</label>
-		<label data-testid="patches" style="margin-top: 1em;">Select a patch:
-			<select name="patch">
-				<option></option>
-			for _, patch := range patches {
-				<option value={ patch }>{ patch }</option>
-			}
-			</select>
-		</label>
-		<button type="submit" style="margin-top: 1em;">
-			dry run
-			<img class="htmx-indicator" src="/static/img/bars.svg"/>
-		</button>
-	</form>
+        <label data-testid="orgs">Select an org:
+            <select name="org">
+                <option></option>
+            for _, org := range orgs {
+                <option value={ org }>{ org }</option>
+            }
+            </select>
+        </label>
+        <label data-testid="patches" style="margin-top: 1em;">Select a patch:
+            <select name="patch">
+                <option></option>
+            for _, patch := range patches {
+                <option value={ patch }>{ patch }</option>
+            }
+            </select>
+        </label>
+        <button type="submit" style="margin-top: 1em;">
+            dry run
+            <img class="htmx-indicator" src="/static/img/bars.svg"/>
+        </button>
+    </form>
 }
