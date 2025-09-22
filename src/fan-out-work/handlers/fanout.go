@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -93,9 +94,13 @@ func (fh *FanoutHandler) StatusHandler(c echo.Context) error {
 	}
 	issueLink, err := fh.fanoutService.Status(c, pr)
 	if err != nil {
-		return fmt.Errorf("error handling status: %w", err)
+		if errors.Is(err, services.ErrRepoMissing) {
+			return renderView(c, views.Status("", err))
+		} else {
+			return fmt.Errorf("error handling status: %w", err)
+		}
 	}
-	return c.String(http.StatusOK, issueLink)
+	return renderView(c, views.Status(issueLink, nil))
 }
 
 type Output struct {

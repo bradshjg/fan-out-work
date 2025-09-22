@@ -1,0 +1,9 @@
+package views
+
+templ Status(issueLink string, err error) {
+    if err != nil {
+        <p>{ err.Error() }</p>
+    } else {
+         <a href={ issueLink }>tracking issue</a>
+    }
+}

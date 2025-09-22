@@ -71,20 +71,24 @@ type Issue struct {
 	Title string
 }
 
+const fanoutRepo = "fan-out"
+
+var ErrRepoMissing = fmt.Errorf("%s must exist as a repository in your target organization", fanoutRepo)
+
 // Gets or creates a GitHub issue
 func (gs *GitHubAPIService) GetOrCreateIssue(c echo.Context, i Issue) (string, error) {
-	const fanoutRepo = "fan-out"
 	ctx := context.Background()
 	client, err := gs.oauthService.Client(c)
 	if err != nil {
 		return "", fmt.Errorf("error getting client: %w", err)
 	}
-	repo, _, err := client.Repositories.Get(ctx, i.Owner, fanoutRepo)
+	_, resp, err := client.Repositories.Get(ctx, i.Owner, fanoutRepo)
 	if err != nil {
-		return "", err
-	}
-	if repo == nil {
-		return "create a \"fan-out\" repository for tracking merges", nil
+		if resp.StatusCode == http.StatusNotFound {
+			return "", ErrRepoMissing
+		} else {
+			return "", err
+		}
 	}
 	opt := &github.IssueListByRepoOptions{
 		ListOptions: github.ListOptions{
