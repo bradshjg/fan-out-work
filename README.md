@@ -23,6 +23,7 @@ In addition to the `fan-out-work` binary that starts the webserver, you'll need:
     * a `config.yml` config file defining the branch name, PR title, and PR body
     * a `patch` executable run in the context of cloned repositories (see [multi-gitter run docs](https://github.com/lindell/multi-gitter?tab=readme-ov-file#-usage-of-run))
   - see `src/fan-out-work/patches/example` as an example patch
+* environment variable configuration (see `.env.example`)
 
 See the included `Dockerfile`...with the following caveats:
 
