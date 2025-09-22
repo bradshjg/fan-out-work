@@ -1,13 +1,13 @@
 # Fan-out work
 
-This library aims to assist in managing fan-out work in a distributed environment.
+Web UI for managing fan-out work in a distributed environment. Centralized patch management; distributed application.
 
 ## How it works
 
-After authenticating to GitHub via OAuth, the user can select a patch to apply to a target organization.
+After authenticating to GitHub via OAuth, select a patch to apply to a target organization.
 
 * A number of PRs will be created/updated based on the chosen patch/target organization.
-* Optionally, if a "fan-out" repo exists in the target organization, a tracking issue can be created with links to generated PRs.
+* Optionally, if a "fan-out" repo exists in the target organization, a tracking issue will be created.
 
 ## Demo
 
