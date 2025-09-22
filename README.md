@@ -11,7 +11,7 @@ After authenticating to GitHub via OAuth, the user can select a patch to apply t
 
 ## Demo
 
-https://github.com/user-attachments/assets/e9e3bae1-dcdc-4b3c-a6a7-da61d874d857
+https://github.com/user-attachments/assets/1f59299e-5c51-43e7-b805-f5e43abcf506
 
 ## Deploying
 
